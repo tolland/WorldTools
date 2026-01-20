@@ -1,3 +1,7 @@
+import groovy.lang.Closure
+
+apply(from = rootProject.file("gradle/secrets.gradle"))
+
 architectury {
     platformSetupLoomIde()
     fabric()
@@ -42,5 +46,39 @@ tasks {
 
     remapJar {
         injectAccessWidener.set(true)
+    }
+}
+
+val getSecret = project.extra["getSecret"] as Closure<*>
+
+val githubActor = getSecret.call("GITHUB_ACTOR") as String
+val githubToken = getSecret.call("GITHUB_TOKEN") as String
+
+publishing {
+    publications {
+        create<MavenPublication>("gpr") {
+            groupId = "worldtools"
+            artifactId = "worldtools-fabric"
+            version = "${project.properties["mod_version"]}-SNAPSHOT"
+
+            artifact(tasks.named("remapJar"))
+
+//                    pom {
+//                        name.set("baritone (patched)")
+//                        description.set("baritone patched 1.21.8")
+//                        url.set("https://github.com/tolland/baritone")
+//                    }
+        }
+    }
+
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/tolland/WorldTools")
+            credentials {
+                username = githubActor
+                password = githubToken
+            }
+        }
     }
 }

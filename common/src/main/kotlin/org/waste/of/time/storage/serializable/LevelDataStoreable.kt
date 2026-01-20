@@ -2,12 +2,16 @@ package org.waste.of.time.storage.serializable
 
 import net.minecraft.SharedConstants
 import net.minecraft.nbt.*
+import net.minecraft.storage.NbtWriteView
 import net.minecraft.text.MutableText
+import net.minecraft.util.ErrorReporter
 import net.minecraft.util.Util
 import net.minecraft.util.WorldSavePath
 import net.minecraft.world.GameRules
 import net.minecraft.world.level.storage.LevelStorage.Session
+import org.slf4j.LoggerFactory
 import org.waste.of.time.Utils.toByte
+import org.waste.of.time.WorldTools
 import org.waste.of.time.WorldTools.DAT_EXTENSION
 import org.waste.of.time.WorldTools.LOG
 import org.waste.of.time.WorldTools.config
@@ -83,11 +87,22 @@ class LevelDataStoreable : Storeable() {
         // skip removed features
 
         // Omit detailed Version block; DataVersion is written below
+        put("Version", NbtCompound().apply {
+            putString("Name", SharedConstants.getGameVersion().name())
+            putInt("Id", SharedConstants.getGameVersion().dataVersion().id)
+            putBoolean("Snapshot", !SharedConstants.getGameVersion().stable())
+            putString("Series", SharedConstants.getGameVersion().dataVersion().series)
+        })
 
         NbtHelper.putDataVersion(this)
 
         put("WorldGenSettings", generatorMockNbt())
         // Omit GameType for compatibility; client will infer
+        mc.networkHandler?.listedPlayerListEntries?.find {
+            it.profile.id == player.uuid
+        }?.let {
+            putInt("GameType", it.gameMode.index)
+        } ?: putInt("GameType", player.server?.defaultGameMode?.index ?: 0)
 
         putInt("SpawnX", player.world.levelProperties.spawnPos.x)
         putInt("SpawnY", player.world.levelProperties.spawnPos.y)
@@ -108,30 +123,21 @@ class LevelDataStoreable : Storeable() {
         putBoolean("initialized", true) // not sure
 
         // WorldBorder serialization name changed across versions; write directly to a tag and merge
-        val borderNbt = player.world.worldBorder.write()
-        when (borderNbt) {
-            is NbtCompound -> this.put("Border", borderNbt)
-        }
+        player.world.worldBorder.write().writeNbt(this)
 
         putByte("Difficulty", player.world.levelProperties.difficulty.id.toByte())
         putBoolean("DifficultyLocked", false) // not sure
 
-        // GameRules
+        // ToDo: Seems that the client side game rules were removed. Now only works for single player :/
         val rules = player.world?.server?.gameRules?.genGameRules() ?: NbtCompound()
         put("GameRules", rules)
-
-        // Minimal Player tag to spawn near captured area
         put("Player", NbtCompound().apply {
-            put("Pos", NbtList().apply {
-                add(NbtDouble.of(player.x))
-                add(NbtDouble.of(player.y))
-                add(NbtDouble.of(player.z))
-            })
-            put("Rotation", NbtList().apply {
-                add(NbtFloat.of(player.yaw))
-                add(NbtFloat.of(player.pitch))
-            })
-            remove("LastDeathLocation")
+            NbtWriteView(
+                ErrorReporter.Logging(LoggerFactory.getLogger(WorldTools.javaClass)),
+                NbtOps.INSTANCE,
+                this
+            ).let { player.writeData(it) }
+            remove("LastDeathLocation") // can contain sensitive information
             putString("Dimension", "minecraft:${player.world.registryKey.value.path}")
         })
 

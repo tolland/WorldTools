@@ -8,6 +8,8 @@ plugins {
     id("com.github.johnrengelman.shadow") version "8.1.1" apply false
 }
 
+apply(from = rootProject.file("gradle/secrets.gradle"))
+
 architectury {
     minecraft = project.properties["minecraft_version"]!! as String
 }

@@ -100,9 +100,8 @@ open class RegionBasedChunk(
             ?: run {
                 // remove any previously stored entities in this chunk in case there are no entities to store
                 RegionBasedEntities(chunkPos, emptySet(), world).store(session, cachedStorages)
-            }
-        // Write even if the client marks the chunk as 'empty';
-        // on the client this can be true while sections are still present.
+        }
+        if (chunk.isEmpty) return
         super.writeToStorage(session, storage, cachedStorages)
     }
 
@@ -114,7 +113,7 @@ open class RegionBasedChunk(
             putLong(TIMESTAMP_KEY, System.currentTimeMillis())
         }
 
-        net.minecraft.nbt.NbtHelper.putDataVersion(this)
+        putInt("DataVersion", SharedConstants.getGameVersion().dataVersion().id)
         putInt(SerializedChunk.X_POS_KEY, chunk.pos.x)
         putInt("yPos", chunk.bottomSectionCoord)
         putInt(SerializedChunk.Z_POS_KEY, chunk.pos.z)
@@ -138,7 +137,7 @@ open class RegionBasedChunk(
             upsertBlockEntities()
         })
 
-        // omit tick schedulers in 1.21.8 port
+        SerializedChunk.serializeTicks(this, chunk.getTickSchedulers(chunk.world.time))
         genPostProcessing(chunk)
 
         // skip structures
@@ -230,9 +229,7 @@ open class RegionBasedChunk(
         }
     }
 
-    private fun NbtCompound.getTickSchedulers(chunk: WorldChunk) {
-        // omitted for compatibility with 1.21.8 mappings
-    }
+    private fun getTickSchedulers(chunk: WorldChunk) = chunk.getTickSchedulers(chunk.world.time)
 
     private fun NbtCompound.genPostProcessing(chunk: WorldChunk) {
         put("PostProcessing", SerializedChunk.toNbt(chunk.postProcessingLists))
@@ -241,7 +238,7 @@ open class RegionBasedChunk(
             chunk.heightmaps.filter {
                 chunk.status.heightmapTypes.contains(it.key)
             }.forEach { (key, value) ->
-                put(key.toString(), NbtLongArray(value.asLongArray()))
+                put(key.id, NbtLongArray(value.asLongArray()))
             }
         })
     }
