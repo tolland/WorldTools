@@ -72,6 +72,7 @@ class BlockEntityLoadable(
         }
         if (existing.isEmpty) {
             LOG.info("[WT-merge]   $pos: saved container is empty, nothing to restore")
+            return
         }
         heldStacks = existing.heldStacks
         markScanned(true)
