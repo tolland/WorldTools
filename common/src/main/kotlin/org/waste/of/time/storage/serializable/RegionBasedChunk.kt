@@ -5,6 +5,8 @@ import net.minecraft.block.Block
 import net.minecraft.block.BlockState
 import net.minecraft.block.Blocks
 import net.minecraft.block.entity.BlockEntity
+import net.minecraft.block.entity.LecternBlockEntity
+import net.minecraft.block.entity.LockableContainerBlockEntity
 import net.minecraft.fluid.Fluid
 import net.minecraft.nbt.NbtCompound
 import net.minecraft.nbt.NbtList
@@ -27,6 +29,7 @@ import org.waste.of.time.WorldTools.LOG
 import org.waste.of.time.WorldTools.TIMESTAMP_KEY
 import org.waste.of.time.WorldTools.config
 import org.waste.of.time.extension.IPalettedContainerExtension
+import org.waste.of.time.manager.CaptureManager
 import org.waste.of.time.manager.MessageManager.translateHighlight
 import org.waste.of.time.manager.StatisticManager
 import org.waste.of.time.storage.Cacheable
@@ -92,6 +95,7 @@ open class RegionBasedChunk(
         storage: CustomRegionBasedStorage,
         cachedStorages: MutableMap<String, CustomRegionBasedStorage>
     ) {
+        mergeFromSavedData(storage)
         // avoiding `emit` here due to flow order issues when capture is stopped
         // i.e., if EndFlow is emitted before this,
         // these are not written because they're behind it in the flow
@@ -103,6 +107,44 @@ open class RegionBasedChunk(
         }
         if (chunk.isEmpty) return
         super.writeToStorage(session, storage, cachedStorages)
+    }
+
+    private fun mergeFromSavedData(storage: CustomRegionBasedStorage) {
+        if (!CaptureManager.isMergeCapture || !config.general.reloadBlockEntities) return
+
+        val emptyUnscanned = cachedBlockEntities.values.filter { be ->
+            val isEmpty = when (be) {
+                is LockableContainerBlockEntity -> be.isEmpty
+                is LecternBlockEntity -> be.book.isEmpty
+                else -> return@filter false
+            }
+            isEmpty
+                && !HotCache.scannedBlockEntities.containsKey(be.pos)
+                && !HotCache.loadedBlockEntities.containsKey(be.pos)
+        }
+
+        if (emptyUnscanned.isEmpty()) return
+
+        val savedByPos = storage.getBlockEntities(chunkPos).associateBy { it.pos }
+        LOG.info("[WT-merge] chunk $chunkPos: ${emptyUnscanned.size} empty unscanned containers, ${savedByPos.size} saved entities on disk")
+
+        emptyUnscanned.forEach { live ->
+            val saved = savedByPos[live.pos] ?: return@forEach
+            when (live) {
+                is LockableContainerBlockEntity -> {
+                    if (saved !is LockableContainerBlockEntity || saved.isEmpty) return@forEach
+                    live.heldStacks = saved.heldStacks
+                    with(HotCache) { live.markScanned(fromCache = true) }
+                    LOG.info("[WT-merge]   ${live.pos}: restored ${live.heldStacks.count { !it.isEmpty }} item stacks")
+                }
+                is LecternBlockEntity -> {
+                    if (saved !is LecternBlockEntity || saved.book.isEmpty) return@forEach
+                    live.book = saved.book
+                    with(HotCache) { live.markScanned(fromCache = true) }
+                    LOG.info("[WT-merge]   ${live.pos}: restored lectern book")
+                }
+            }
+        }
     }
 
     /**

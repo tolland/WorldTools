@@ -23,6 +23,7 @@ import org.waste.of.time.storage.serializable.*
 object CaptureManager {
     private const val MAX_WORLD_NAME_LENGTH = 64
     var capturing = false
+    var isMergeCapture = false
     private var storeJob: Job? = null
     var currentLevelName: String = "Not yet initialized"
     var lastPlayer: ClientPlayerEntity? = null
@@ -75,6 +76,7 @@ object CaptureManager {
             return
         }
 
+        isMergeCapture = worldExists
         HotCache.clear()
         currentLevelName = potentialName
         lastPlayer = mc.player
