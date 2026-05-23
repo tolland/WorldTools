@@ -14,6 +14,7 @@ import net.minecraft.inventory.SimpleInventory
 import org.waste.of.time.WorldTools.mc
 import org.waste.of.time.storage.cache.HotCache.markScanned
 import org.waste.of.time.storage.cache.HotCache.scannedBlockEntities
+import org.waste.of.time.WorldTools.LOG
 
 object DataInjectionHandler {
     fun onScreenRemoved(screen: Screen) {
@@ -137,6 +138,8 @@ object DataInjectionHandler {
         val chestType = cachedState[ChestBlock.CHEST_TYPE] ?: return
         val containerSlots = screen.getContainerSlots()
         val inventories = containerSlots.partition { it.index < 27 }
+
+        LOG.info("[WT-merge] chest type: $chestType, facing: $facing")
 
         when (chestType) {
             ChestType.SINGLE -> {

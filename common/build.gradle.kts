@@ -1,7 +1,7 @@
 architectury { common("fabric") }
 
 loom {
-    accessWidenerPath.set(File("src/main/resources/worldtools.accesswidener"))
+    accessWidenerPath = project(":common").file("src/main/resources/worldtools.accesswidener")
 }
 
 repositories {
