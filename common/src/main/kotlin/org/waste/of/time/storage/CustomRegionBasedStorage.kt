@@ -84,11 +84,15 @@ open class CustomRegionBasedStorage internal constructor(
         val compounds = rawList.filterIsInstance<NbtCompound>()
         LOG.info("[WT-merge]   getBlockEntities($chunkPos): found ${compounds.size} raw block entity entries")
 
+        val registryManager = mc.world?.registryManager ?: run {
+            LOG.warn("[WT-merge]   getBlockEntities($chunkPos): mc.world is null, cannot deserialize block entities")
+            return emptyList()
+        }
+
         return compounds.mapNotNull { compoundTag ->
             val blockPos = BlockPos(compoundTag.getInt("x", 0), compoundTag.getInt("y", 0), compoundTag.getInt("z", 0))
             val id = compoundTag.getString("id", "")
             val blockStateIdentifier = Identifier.of(id)
-            val world = mc.world ?: return@mapNotNull null
 
             runCatching {
                 val block = Registries.BLOCK.get(blockStateIdentifier)
@@ -96,7 +100,7 @@ open class CustomRegionBasedStorage internal constructor(
                     .getOptionalValue(blockStateIdentifier)
                     .orElse(null)
                     ?.instantiate(blockPos, block.defaultState)?.apply {
-                        read(NbtReadView.create(null, null, compoundTag))
+                        read(NbtReadView.create(null, registryManager, compoundTag))
                     }
             }.onFailure { e ->
                 LOG.warn("[WT-merge]   getBlockEntities($chunkPos): failed to instantiate '$id' at $blockPos: ${e.message}")
