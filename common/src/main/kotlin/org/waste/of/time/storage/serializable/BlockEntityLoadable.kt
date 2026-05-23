@@ -8,7 +8,6 @@ import net.minecraft.world.level.storage.LevelStorage
 import org.waste.of.time.WorldTools.config
 import org.waste.of.time.manager.MessageManager.translateHighlight
 import org.waste.of.time.storage.CustomRegionBasedStorage
-import org.waste.of.time.storage.cache.HotCache
 import org.waste.of.time.storage.cache.HotCache.isSupported
 import org.waste.of.time.storage.cache.HotCache.markScanned
 
@@ -38,15 +37,12 @@ class BlockEntityLoadable(
             .getBlockEntities(chunkPos)
             .filter { it.isSupported }
             .forEach { existing ->
-                HotCache.chunks[chunkPos]
-                    ?.cachedBlockEntities
-                    ?.get(existing.pos)
-                    ?.let { blockEntity ->
-                        when (blockEntity) {
-                            is LockableContainerBlockEntity -> blockEntity.migrateData(existing)
-                            is LecternBlockEntity -> blockEntity.migrateData(existing)
-                        }
+                cachedBlockEntities[existing.pos]?.let { blockEntity ->
+                    when (blockEntity) {
+                        is LockableContainerBlockEntity -> blockEntity.migrateData(existing)
+                        is LecternBlockEntity -> blockEntity.migrateData(existing)
                     }
+                }
             }
         return migrated
     }
@@ -54,6 +50,7 @@ class BlockEntityLoadable(
     private fun LockableContainerBlockEntity.migrateData(existing: BlockEntity) {
         if (existing !is LockableContainerBlockEntity) return
         if (!isEmpty) return
+        if (existing.isEmpty) return
         heldStacks = existing.heldStacks
         markScanned(true)
         migrated = true
