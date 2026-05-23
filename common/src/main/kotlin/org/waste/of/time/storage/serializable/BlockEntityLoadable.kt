@@ -34,9 +34,8 @@ class BlockEntityLoadable(
         session: LevelStorage.Session,
         cachedStorages: MutableMap<String, CustomRegionBasedStorage>
     ): Boolean {
-        val savedEntities = generateStorage(session, cachedStorages)
-            .getBlockEntities(chunkPos)
-            .filter { it.isSupported }
+        val storage = generateStorage(session, cachedStorages)
+        val savedEntities = storage.getBlockEntities(chunkPos).filter { it.isSupported }
 
         LOG.info("[WT-merge] chunk $chunkPos: ${savedEntities.size} supported saved block entities, ${cachedBlockEntities.size} in memory")
 

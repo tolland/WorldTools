@@ -8,6 +8,7 @@ import net.minecraft.registry.Registries
 import net.minecraft.util.Identifier
 import net.minecraft.util.path.PathUtil
 import net.minecraft.util.ThrowableDeliverer
+import org.waste.of.time.WorldTools.LOG
 import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.ChunkPos
 import net.minecraft.world.World
@@ -67,26 +68,41 @@ open class CustomRegionBasedStorage internal constructor(
             NbtIo.readCompound(dataInputStream)
         }
 
-    fun getBlockEntities(chunkPos: ChunkPos): List<BlockEntity> =
-        getNbtAt(chunkPos)
-			?.getList("block_entities")
-            ?.orElse(null)
-            ?.filterIsInstance<NbtCompound>()
-            ?.mapNotNull { compoundTag ->
-                val blockPos = BlockPos(compoundTag.getInt("x", 0), compoundTag.getInt("y", 0), compoundTag.getInt("z", 0))
-                val blockStateIdentifier = Identifier.of(compoundTag.getString("id", ""))
-                val world = mc.world ?: return@mapNotNull null
+    fun getBlockEntities(chunkPos: ChunkPos): List<BlockEntity> {
+        val nbt = getNbtAt(chunkPos)
+        if (nbt == null) {
+            LOG.info("[WT-merge]   getBlockEntities($chunkPos): no saved NBT found (chunk not in region file)")
+            return emptyList()
+        }
 
-                runCatching {
-                    val block = Registries.BLOCK.get(blockStateIdentifier)
-                    Registries.BLOCK_ENTITY_TYPE
-                        .getOptionalValue(blockStateIdentifier)
-                        .orElse(null)
-                        ?.instantiate(blockPos, block.defaultState)?.apply {
-                            read(NbtReadView.create(null,null,compoundTag))
-                        }
-                }.getOrNull()
-            } ?: emptyList()
+        val rawList = nbt.getList("block_entities").orElse(null)
+        if (rawList == null) {
+            LOG.info("[WT-merge]   getBlockEntities($chunkPos): NBT found but no 'block_entities' key (keys: ${nbt.keys})")
+            return emptyList()
+        }
+
+        val compounds = rawList.filterIsInstance<NbtCompound>()
+        LOG.info("[WT-merge]   getBlockEntities($chunkPos): found ${compounds.size} raw block entity entries")
+
+        return compounds.mapNotNull { compoundTag ->
+            val blockPos = BlockPos(compoundTag.getInt("x", 0), compoundTag.getInt("y", 0), compoundTag.getInt("z", 0))
+            val id = compoundTag.getString("id", "")
+            val blockStateIdentifier = Identifier.of(id)
+            val world = mc.world ?: return@mapNotNull null
+
+            runCatching {
+                val block = Registries.BLOCK.get(blockStateIdentifier)
+                Registries.BLOCK_ENTITY_TYPE
+                    .getOptionalValue(blockStateIdentifier)
+                    .orElse(null)
+                    ?.instantiate(blockPos, block.defaultState)?.apply {
+                        read(NbtReadView.create(null, null, compoundTag))
+                    }
+            }.onFailure { e ->
+                LOG.warn("[WT-merge]   getBlockEntities($chunkPos): failed to instantiate '$id' at $blockPos: ${e.message}")
+            }.getOrNull()
+        }
+    }
 
     @Throws(IOException::class)
     override fun close() {
