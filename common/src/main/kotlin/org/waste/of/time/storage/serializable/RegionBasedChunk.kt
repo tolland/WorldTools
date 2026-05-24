@@ -188,12 +188,10 @@ open class RegionBasedChunk(
     }
 
     private fun NbtList.upsertBlockEntities() {
-        cachedBlockEntities.entries.map { (_, blockEntity) ->
-            blockEntity.createNbtWithIdentifyingData(world.registryManager).apply {
-                putBoolean("keepPacked", false)
-            }
-        }.apply {
-            addAll(this)
+        cachedBlockEntities.forEach { (_, blockEntity) ->
+            val compound = blockEntity.createNbtWithIdentifyingData(world.registryManager)
+            compound.putBoolean("keepPacked", false)
+            this.add(compound)
         }
     }
 

@@ -4,20 +4,19 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap
 import net.minecraft.block.entity.BlockEntity
 import net.minecraft.nbt.NbtCompound
 import net.minecraft.nbt.NbtIo
+import net.minecraft.nbt.NbtList
 import net.minecraft.registry.Registries
 import net.minecraft.util.Identifier
 import net.minecraft.util.path.PathUtil
 import net.minecraft.util.ThrowableDeliverer
-import org.waste.of.time.WorldTools.LOG
 import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.ChunkPos
 import net.minecraft.world.World
 import net.minecraft.world.storage.RegionFile
 import net.minecraft.world.storage.StorageKey
-import org.waste.of.time.WorldTools.MCA_EXTENSION
-import org.waste.of.time.WorldTools.MOD_NAME
 import org.waste.of.time.WorldTools.mc
 import net.minecraft.storage.NbtReadView
+import org.apache.logging.log4j.LogManager
 import java.io.DataOutput
 import java.io.IOException
 import java.nio.file.Path
@@ -30,6 +29,10 @@ open class CustomRegionBasedStorage internal constructor(
     private val cachedRegionFiles: Long2ObjectLinkedOpenHashMap<RegionFile?> = Long2ObjectLinkedOpenHashMap()
 
     companion object {
+        private const val MCA_EXTENSION = ".mca"
+        private const val MOD_NAME = "WorldTools"
+        private val LOG = LogManager.getLogger()
+
         // Seems to only be used for MC's profiler
         // simpler to just use a default key instead of wiring this all in here
         val defaultStorageKey: StorageKey = StorageKey(MOD_NAME, World.OVERWORLD, "chunk")
@@ -68,21 +71,30 @@ open class CustomRegionBasedStorage internal constructor(
             NbtIo.readCompound(dataInputStream)
         }
 
-    fun getBlockEntities(chunkPos: ChunkPos): List<BlockEntity> {
+    fun getBlockEntityTags(chunkPos: ChunkPos): List<NbtCompound> {
         val nbt = getNbtAt(chunkPos)
         if (nbt == null) {
-            LOG.info("[WT-merge]   getBlockEntities($chunkPos): no saved NBT found (chunk not in region file)")
+            LOG.info("[WT-merge]   getBlockEntityTags($chunkPos): no saved NBT found (chunk not in region file)")
             return emptyList()
         }
 
-        val rawList = nbt.getList("block_entities").orElse(null)
+        return getBlockEntityTags(nbt).also { compounds ->
+            LOG.info("[WT-merge]   getBlockEntityTags($chunkPos): found ${compounds.size} raw block entity entries")
+        }
+    }
+
+    internal fun getBlockEntityTags(nbt: NbtCompound): List<NbtCompound> {
+        val rawList = nbt.get("block_entities") as? NbtList
         if (rawList == null) {
-            LOG.info("[WT-merge]   getBlockEntities($chunkPos): NBT found but no 'block_entities' key (keys: ${nbt.keys})")
+            LOG.info("[WT-merge]   getBlockEntityTags: NBT found but no 'block_entities' key or wrong type (keys: ${nbt.keys})")
             return emptyList()
         }
 
-        val compounds = rawList.filterIsInstance<NbtCompound>()
-        LOG.info("[WT-merge]   getBlockEntities($chunkPos): found ${compounds.size} raw block entity entries")
+        return rawList.streamCompounds().toList()
+    }
+
+    fun getBlockEntities(chunkPos: ChunkPos): List<BlockEntity> {
+        val compounds = getBlockEntityTags(chunkPos)
 
         val registryManager = mc.world?.registryManager ?: run {
             LOG.warn("[WT-merge]   getBlockEntities($chunkPos): mc.world is null, cannot deserialize block entities")
