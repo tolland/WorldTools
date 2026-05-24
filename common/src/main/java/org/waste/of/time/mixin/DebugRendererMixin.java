@@ -1,4 +1,24 @@
 package org.waste.of.time.mixin;
 
-// Rendering is now hooked via WorldRenderEvents.BEFORE_DEBUG_RENDER in WorldToolsFabric.
-// This file is intentionally empty.
+import net.minecraft.client.render.Frustum;
+import net.minecraft.client.render.debug.DebugRenderer;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.waste.of.time.Events;
+
+@Mixin(DebugRenderer.class)
+public class DebugRendererMixin {
+    @Inject(method = "render", at = @At("HEAD"))
+    public void renderInject(
+            Frustum frustum,
+            double cameraX,
+            double cameraY,
+            double cameraZ,
+            float tickProgress,
+            CallbackInfo ci
+    ) {
+        Events.INSTANCE.onDebugRenderStart(frustum);
+    }
+}

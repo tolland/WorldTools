@@ -4,20 +4,20 @@ import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.gui.widget.ButtonWidget
 import net.minecraft.client.gui.widget.GridWidget
-import net.minecraft.client.render.RenderLayer
-import net.minecraft.client.render.VertexConsumer
-import net.minecraft.client.render.VertexConsumerProvider
-import net.minecraft.client.render.RenderLayers
-import net.minecraft.client.util.math.MatrixStack
+import net.minecraft.client.render.DrawStyle
+import net.minecraft.client.render.Frustum
 import net.minecraft.component.type.MapIdComponent
 import net.minecraft.entity.Entity
 import net.minecraft.entity.LivingEntity
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.util.hit.BlockHitResult
 import net.minecraft.util.math.BlockPos
+import net.minecraft.util.math.Box
+import net.minecraft.util.math.ColorHelper
 import net.minecraft.util.math.Vec3d
 import net.minecraft.world.World
 import net.minecraft.world.chunk.WorldChunk
+import net.minecraft.world.debug.gizmo.GizmoDrawing
 import org.waste.of.time.Utils.manhattanDistance2d
 import org.waste.of.time.WorldTools.CAPTURE_KEY
 import org.waste.of.time.WorldTools.CONFIG_KEY
@@ -111,57 +111,31 @@ object Events {
         HotCache.lastInteractedBlockEntity = null
     }
 
-    fun onDebugRenderStart(
-        matrices: MatrixStack,
-        vertexConsumers: VertexConsumerProvider.Immediate,
-        cameraX: Double,
-        cameraY: Double,
-        cameraZ: Double
-    ) {
+    fun onDebugRenderStart(frustum: Frustum) {
         if (!capturing || !config.render.renderNotYetCachedContainers) return
 
-        val vertexConsumer = vertexConsumers.getBuffer(RenderLayers.lines()) ?: return
-
         HotCache.unscannedBlockEntities
-            .forEach { render(it.pos.vec, cameraX, cameraY, cameraZ, matrices, vertexConsumer, Color(config.render.unscannedContainerColor)) }
+            .forEach { render(it.pos.vec, frustum, Color(config.render.unscannedContainerColor)) }
 
         HotCache.loadedBlockEntities
-            .forEach { render(it.value.pos.vec, cameraX, cameraY, cameraZ, matrices, vertexConsumer, Color(config.render.fromCacheLoadedContainerColor)) }
+            .forEach { render(it.value.pos.vec, frustum, Color(config.render.fromCacheLoadedContainerColor)) }
 
         HotCache.unscannedEntities
-            .forEach { render(it.entity.getEntityPos().add(-.5, .0, -.5), cameraX, cameraY, cameraZ, matrices, vertexConsumer, Color(config.render.unscannedEntityColor)) }
+            .forEach { render(it.entity.getEntityPos().add(-.5, .0, -.5), frustum, Color(config.render.unscannedEntityColor)) }
     }
 
     private val BlockPos.vec get() = Vec3d(x.toDouble(), y.toDouble(), z.toDouble())
 
     private fun render(
         vec: Vec3d,
-        cameraX: Double,
-        cameraY: Double,
-        cameraZ: Double,
-        matrices: MatrixStack,
-        vertexConsumer: VertexConsumer,
+        frustum: Frustum,
         color: Color
     ) {
-        val x1 = (vec.x - cameraX).toFloat()
-        val y1 = (vec.y - cameraY).toFloat()
-        val z1 = (vec.z - cameraZ).toFloat()
-        val x2 = x1 + 1
-        val z2 = z1 + 1
-        val r = color.red / 255.0f
-        val g = color.green / 255.0f
-        val b = color.blue / 255.0f
-        val a = 1.0f
-        val positionMat = matrices.peek().positionMatrix
-        val normMat = matrices.peek()
-        vertexConsumer.vertex(positionMat, x1, y1, z1).color(r, g, b, a).normal(normMat, 1.0f, 0.0f, 0.0f)
-        vertexConsumer.vertex(positionMat, x2, y1, z1).color(r, g, b, a).normal(normMat, 1.0f, 0.0f, 0.0f)
-        vertexConsumer.vertex(positionMat, x1, y1, z1).color(r, g, b, a).normal(normMat, 0.0f, 0.0f, 1.0f)
-        vertexConsumer.vertex(positionMat, x1, y1, z2).color(r, g, b, a).normal(normMat, 0.0f, 0.0f, 1.0f)
-        vertexConsumer.vertex(positionMat, x1, y1, z2).color(r, g, b, a).normal(normMat, 1.0f, 0.0f, 0.0f)
-        vertexConsumer.vertex(positionMat, x2, y1, z2).color(r, g, b, a).normal(normMat, 1.0f, 0.0f, 0.0f)
-        vertexConsumer.vertex(positionMat, x2, y1, z2).color(r, g, b, a).normal(normMat, 0.0f, 0.0f, -1.0f)
-        vertexConsumer.vertex(positionMat, x2, y1, z1).color(r, g, b, a).normal(normMat, 0.0f, 0.0f, -1.0f)
+        val box = Box(vec, vec.add(1.0, 1.0, 1.0))
+        if (!frustum.isVisible(box)) return
+
+        val argb = ColorHelper.getArgb(color.alpha, color.red, color.green, color.blue)
+        GizmoDrawing.box(box, DrawStyle.stroked(argb, 2.0f)).ignoreOcclusion()
     }
 
     fun onGameMenuScreenInitWidgets(adder: GridWidget.Adder) {

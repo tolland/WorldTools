@@ -14,7 +14,6 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents
-import net.minecraft.client.render.VertexConsumerProvider
 import org.waste.of.time.Events
 import org.waste.of.time.WorldTools
 import org.waste.of.time.WorldTools.LOG
@@ -54,15 +53,8 @@ object WorldToolsFabric : ClientModInitializer {
             Events.onChunkLoad(chunk)
         })
         ClientChunkEvents.CHUNK_UNLOAD.register(ClientChunkEvents.Unload { world, chunk ->
-            if (chunk == null) return@Unload
             Events.onChunkUnload(chunk)
         })
-//        WorldRenderEvents.BEFORE_DEBUG_RENDER.register { context ->
-//            val consumers = context.consumers() as? VertexConsumerProvider.Immediate ?: return@register
-//            val matrixStack = context.matrixStack() ?: return@register
-//            val camera = context.camera().pos
-//            Events.onDebugRenderStart(matrixStack, consumers, camera.x, camera.y, camera.z)
-//        }
 
         LOG.info("WorldTools Fabric initialized")
     }
