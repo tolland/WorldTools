@@ -17,6 +17,7 @@
   "license": "GNU General Public License v3.0",
   "icon": "assets/worldtools/WorldTools.png",
   "environment": "*",
+  "accessWidener": "worldtools.classtweaker",
   "entrypoints": {
     "client": [
       {

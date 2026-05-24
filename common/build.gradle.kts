@@ -1,7 +1,7 @@
 architectury { common("fabric") }
 
 loom {
-    accessWidenerPath = project(":common").file("src/main/resources/worldtools.accesswidener")
+    accessWidenerPath = file("src/main/resources/worldtools.classtweaker")
 }
 
 repositories {
@@ -28,4 +28,3 @@ dependencies {
 tasks.named("remapJar") {
     enabled = false
 }
-

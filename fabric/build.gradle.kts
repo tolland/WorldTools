@@ -3,11 +3,17 @@ architectury {
     fabric()
 }
 
+loom {
+
+    accessWidenerPath = file("src/main/resources/worldtools.classtweaker")
+
+}
+
 base.archivesName.set("${base.archivesName.get()}-fabric")
 
 loom {
 //    accessWidenerPath.set(project(":common").loom.accessWidenerPath)
-    accessWidenerPath = project(":common").loom.accessWidenerPath
+//    accessWidenerPath = project(":common").loom.accessWidenerPath
     enableTransitiveAccessWideners.set(true)
     runs {
         getByName("client") {
