@@ -23,6 +23,12 @@ dependencies {
     modCompileOnly("me.shedaniel.cloth:cloth-config-fabric:${project.properties["cloth_config_version"]}") {
         exclude(group = "net.fabricmc.fabric-api", module = "fabric-api")
     }
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
+    testImplementation("net.fabricmc:fabric-loader-junit:${project.properties["fabric_loader_version"]!!}")
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
 }
 
 tasks.named("remapJar") {
